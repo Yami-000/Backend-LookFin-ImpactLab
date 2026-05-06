@@ -17,9 +17,11 @@ import {
 } from '../config/firebaseAuth.js';
 import admin from '../config/firebaseAdmin.js';
 import { Op } from 'sequelize';
+import { uploadFileToSupabaseServer } from '../config/supabase.js';
 
 const { Chat, Mensaje, Usuario } = models;
 const { chatValidationSchema, mensajeValidationSchema, usuarioValidationSchema, updateUsuarioValidationSchema } = validationSchemas;
+const MAX_UPLOAD_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 
 const extractStoragePathFromUrl = (url) => {
     if (!url || typeof url !== 'string') return null;
@@ -288,8 +290,25 @@ const resolvers = {
         },
 
         // ------------------------------ Chat ------------------------------
-        addChat: async (_, { input }) => {
-            const { value, error } = chatValidationSchema.validate(input, { abortEarly: false, stripUnknown: true });
+        addChat: async (_, { input }, { authUser }) => {
+            if (!authUser) {
+                throw new Error('No autenticado. Debes iniciar sesión para crear un chat.');
+            }
+
+            const usuario = await Usuario.findOne({
+                where: { firebaseUID: authUser.uid }
+            });
+
+            if (!usuario) {
+                throw new Error('Usuario no encontrado en la base de datos');
+            }
+
+            const chatInput = {
+                ...input,
+                usuarioID: usuario.id,
+            };
+
+            const { value, error } = chatValidationSchema.validate(chatInput, { abortEarly: false, stripUnknown: true });
             if (error) {
                 throw new Error(`Mutation addChat - Error de validación: ${error.details.map(err => err.message).join(', ')}`);
             }
@@ -485,6 +504,56 @@ const resolvers = {
             } catch (error) {
                 console.error('Mutation logout - Error al cerrar sesión:', error);
                 throw new Error('Mutation logout - Error al cerrar sesión: ' + error.message);
+            }
+        },
+
+        uploadFile: async (_, { input }, { authUser }) => {
+            try {
+                if (!authUser) {
+                    throw new Error('No autenticado. Debes estar logueado para subir archivos.');
+                }
+
+                if (!input.file || !input.fileName || !input.chatID) {
+                    throw new Error('Se requieren file, fileName y chatID');
+                }
+
+                if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.chatID)) {
+                    throw new Error('chatID inválido. Crea una conversación guardada en la base de datos antes de subir archivos.');
+                }
+
+                // Validar que el usuario existe en PostgreSQL
+                const usuario = await Usuario.findOne({
+                    where: { firebaseUID: authUser.uid }
+                });
+
+                if (!usuario) {
+                    throw new Error('Usuario no encontrado en la base de datos');
+                }
+
+                // Validar que el usuario tiene acceso al chat
+                const chat = await Chat.findByPk(input.chatID);
+                if (!chat || chat.usuarioID !== usuario.id) {
+                    throw new Error('No autorizado: no tienes acceso a este chat');
+                }
+
+                // Convertir base64 string a buffer
+                const fileBuffer = Buffer.from(input.file, 'base64');
+
+                if (fileBuffer.length > MAX_UPLOAD_FILE_SIZE_BYTES) {
+                    throw new Error('El archivo supera el límite de 8 MB. Usa un archivo más pequeño.');
+                }
+
+                // Subir a Supabase
+                const fileUrl = await uploadFileToSupabaseServer(fileBuffer, input.fileName, input.chatID);
+
+                return {
+                    success: true,
+                    message: 'Archivo subido exitosamente',
+                    fileUrl
+                };
+            } catch (error) {
+                console.error('Mutation uploadFile - Error al subir archivo:', error);
+                throw new Error('Mutation uploadFile - Error al subir archivo: ' + error.message);
             }
         }
     }

@@ -44,7 +44,7 @@ await apolloServer.start();
 
 app.use(
   '/graphql',
-  express.json(),
+  express.json({ limit: '20mb' }),
   expressMiddleware(apolloServer, {
     context: async ({ req }) => {
       const authorizationHeader = req.headers.authorization;

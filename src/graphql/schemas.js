@@ -74,6 +74,12 @@ type Message {
   message: String!
 }
 
+type FileUploadResponse {
+  success: Boolean!
+  message: String!
+  fileUrl: String
+}
+
 type UsuarioLoginResponse {
   success: Boolean!
   message: String!
@@ -109,6 +115,12 @@ input LogoutInput {
   idToken: String!
 }
 
+input UploadFileInput {
+  file: String!
+  fileName: String!
+  chatID: ID!
+}
+
 type Query {
   getUsuarios: [Usuario]
   getUsuarioByID(id: ID!): Usuario
@@ -138,6 +150,7 @@ type Mutation {
   signUpEmailPassword(input: SignUpEmailPasswordInput!): UsuarioAuthResponse
   loginEmailPassword(input: LoginEmailPasswordInput!): UsuarioAuthResponse
   logout(input: LogoutInput!): UsuarioAuthResponse
+  uploadFile(input: UploadFileInput!): FileUploadResponse
 
   loginUsuario(input: LoginUsuarioInput!): UsuarioLoginResponse
 }
