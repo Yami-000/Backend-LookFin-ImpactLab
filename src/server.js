@@ -42,6 +42,10 @@ const apolloServer = new ApolloServer({
 
 await apolloServer.start();
 
+app.get('/health', (_, res) => {
+  res.status(200).json({ ok: true });
+});
+
 app.use(
   '/graphql',
   express.json({ limit: '20mb' }),
