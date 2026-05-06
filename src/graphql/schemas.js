@@ -7,6 +7,7 @@ type Usuario {
   nombre: String!
   correoElectronico: String!
   contrasena: String!
+  firebaseUID: String
   sueldo: Float
   porcentajeRSH: Float
   profesion: String

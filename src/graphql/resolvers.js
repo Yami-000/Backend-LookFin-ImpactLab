@@ -16,6 +16,7 @@ import {
     deleteUserByUID
 } from '../config/firebaseAuth.js';
 import admin from '../config/firebaseAdmin.js';
+import { Op } from 'sequelize';
 
 const { Chat, Mensaje, Usuario } = models;
 const { chatValidationSchema, mensajeValidationSchema, usuarioValidationSchema, updateUsuarioValidationSchema } = validationSchemas;
@@ -41,6 +42,58 @@ const deleteStorageObjectIfExists = async (mediaURL) => {
     } catch (error) {
         console.warn('No se pudo eliminar archivo de Storage asociado al mensaje:', error?.message || error);
     }
+};
+
+const getFirebaseUserSeed = (firebaseUser, fallbackEmail) => {
+    const email = firebaseUser?.email ?? fallbackEmail ?? '';
+
+    return {
+        nombre: firebaseUser?.displayName?.trim() || email.split('@')[0] || 'Usuario',
+        correoElectronico: email,
+        firebaseUID: firebaseUser?.uid,
+        contrasena: `firebase-auth:${firebaseUser?.uid || email}`,
+        fechaNacimiento: null,
+    };
+};
+
+const ensureUsuarioFromFirebaseUser = async (firebaseUser, fallbackEmail) => {
+    if (!firebaseUser?.uid) {
+        throw new Error('No se pudo sincronizar el usuario de Firebase con la base de datos');
+    }
+
+    const seed = getFirebaseUserSeed(firebaseUser, fallbackEmail);
+    const usuario = await Usuario.findOne({
+        where: {
+            [Op.or]: [
+                { firebaseUID: firebaseUser.uid },
+                seed.correoElectronico ? { correoElectronico: seed.correoElectronico } : null,
+            ].filter(Boolean),
+        },
+    });
+
+    if (usuario) {
+        const updatePayload = {};
+
+        if (!usuario.firebaseUID) {
+            updatePayload.firebaseUID = firebaseUser.uid;
+        }
+
+        if (seed.correoElectronico && usuario.correoElectronico !== seed.correoElectronico) {
+            updatePayload.correoElectronico = seed.correoElectronico;
+        }
+
+        if (seed.nombre && usuario.nombre !== seed.nombre) {
+            updatePayload.nombre = seed.nombre;
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+            await usuario.update(updatePayload);
+        }
+
+        return usuario;
+    }
+
+    return await Usuario.create(seed);
 };
 
 const enrichMensajeWithUser = async (mensaje) => {
@@ -370,15 +423,10 @@ const resolvers = {
             }
             try {
                 // Crear usuario en Firebase
-                const firebaseUser = await createUserWithEmailPassword(value.correoElectronico, value.contrasena);
-                
-                // Crear usuario en PostgreSQL
-                const usuario = await Usuario.create({
-                    nombre: value.nombre,
-                    correoElectronico: value.correoElectronico,
-                    contrasena: value.contrasena,
-                    firebaseUID: firebaseUser.uid
-                });
+                const firebaseUser = await createUserWithEmailPassword(value.correoElectronico, value.contrasena, value.nombre);
+
+                // Crear o sincronizar usuario en PostgreSQL
+                const usuario = await ensureUsuarioFromFirebaseUser(firebaseUser, value.correoElectronico);
 
                 return {
                     success: true,
@@ -404,15 +452,9 @@ const resolvers = {
                 if (decodedToken.email && decodedToken.email !== value.correoElectronico) {
                     throw new Error('El correo electrónico no coincide con el token de Firebase');
                 }
-                
-                // Obtener usuario de PostgreSQL
-                const usuario = await Usuario.findOne({
-                    where: { firebaseUID: decodedToken.uid }
-                });
 
-                if (!usuario) {
-                    throw new Error('Mutation loginEmailPassword - Usuario no encontrado');
-                }
+                const firebaseUser = await getUserByUID(decodedToken.uid);
+                const usuario = await ensureUsuarioFromFirebaseUser(firebaseUser, value.correoElectronico);
 
                 return {
                     success: true,

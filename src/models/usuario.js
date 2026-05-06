@@ -56,7 +56,7 @@ export default (sequelize) => {
         },
         fechaNacimiento: {
             type: DataTypes.DATEONLY,
-            allowNull: false,
+            allowNull: true,
             validate: {
                 isDate: true,
             },

@@ -8,6 +8,7 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const defaultServiceAccountPath = join(__dirname, '..', '..', 'credentials', 'lookfin-app-firebase-adminsdk-fbsvc-b6a46859b2.json');
 
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 const serviceAccountPathFromEnv = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
@@ -27,19 +28,27 @@ const buildAdminOptions = () => {
             ? serviceAccountPathFromEnv
             : join(__dirname, '..', '..', serviceAccountPathFromEnv);
         if (!existsSync(serviceAccountPath)) {
-            console.warn(`No se encontró el service account en ${serviceAccountPath}. Firebase Auth quedará inactivo hasta configurar una credencial válida.`);
+            console.warn(`No se encontró el service account en ${serviceAccountPath}. Se intentará usar la credencial por defecto del repositorio.`);
+        } else {
+            const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+
             return {
-                credential: admin.credential.applicationDefault(),
-                storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+                credential: admin.credential.cert(serviceAccount),
+                storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`,
             };
         }
-        const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+    }
+
+    if (existsSync(defaultServiceAccountPath)) {
+        const serviceAccount = JSON.parse(readFileSync(defaultServiceAccountPath, 'utf8'));
 
         return {
             credential: admin.credential.cert(serviceAccount),
             storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id}.appspot.com`,
         };
     }
+
+    console.warn('No se encontró ninguna credencial de Firebase Admin. Se usará Application Default Credentials.');
 
     return {
         credential: admin.credential.applicationDefault(),
