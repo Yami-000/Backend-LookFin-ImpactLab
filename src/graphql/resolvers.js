@@ -400,6 +400,10 @@ const resolvers = {
             try {
                 // Verificar el token de Firebase
                 const decodedToken = await verifyIdToken(value.idToken);
+
+                if (decodedToken.email && decodedToken.email !== value.correoElectronico) {
+                    throw new Error('El correo electrónico no coincide con el token de Firebase');
+                }
                 
                 // Obtener usuario de PostgreSQL
                 const usuario = await Usuario.findOne({

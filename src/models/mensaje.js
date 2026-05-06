@@ -1,5 +1,4 @@
 import { DataTypes } from "sequelize";
-import chat from "./chat";
 
 export default (sequelize) => {
     const Mensaje = sequelize.define('Mensaje', {

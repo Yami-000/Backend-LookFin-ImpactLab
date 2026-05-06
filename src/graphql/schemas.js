@@ -29,6 +29,18 @@ input UsuarioInput {
   region: String
 }
 
+input UpdateUsuarioInput {
+  nombre: String
+  correoElectronico: String
+  contrasena: String
+  sueldo: Float
+  porcentajeRSH: Float
+  profesion: String
+  fechaNacimiento: Int
+  ciudad: String
+  region: String
+}
+
 type Chat {
   id: ID!
   nombre: String!
@@ -84,6 +96,12 @@ input LoginUsuarioInput {
 input LoginEmailPasswordInput {
   correoElectronico: String!
   idToken: String!
+}
+
+input SignUpEmailPasswordInput {
+  nombre: String!
+  correoElectronico: String!
+  contrasena: String!
 }
 
 input LogoutInput {

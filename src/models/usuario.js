@@ -111,45 +111,13 @@ export default (sequelize) => {
     };
 
     Usuario.associate = (models) => {
-        Usuario.hasMany(models.Grupo, {
-            foreignKey: 'creadorID',
-            as: 'gruposCreados'
-        });
-        Usuario.hasMany(models.Amigo, {
-            foreignKey: 'usuarioID',
-            as: 'amigos'
-        });
-        Usuario.hasMany(models.Amigo, {
-            foreignKey: 'amigoID',
-            as: 'amigosDe'
-        });
-        Usuario.hasMany(models.PreferenciaMusicalUsuario, {
-            foreignKey: 'usuarioID',
-            as: 'preferenciasMusicales'
-        });
-        Usuario.hasMany(models.UsuarioPreferencia, {
-            foreignKey: 'usuarioID',
-            as: 'preferenciasLocales'
-        });
-        Usuario.hasMany(models.IntegranteSalaKrrete, {
-            foreignKey: 'usuarioID',
-            as: 'salasKrrete'
-        });
         Usuario.hasMany(models.Mensaje, {
             foreignKey: 'emisorID',
             as: 'mensajesEnviados'
         });
-        Usuario.hasMany(models.MiembroGrupo, {
+        Usuario.hasMany(models.Chat, {
             foreignKey: 'usuarioID',
-            as: 'gruposMiembro'
-        });
-        Usuario.hasMany(models.SolicitudAmistad, {
-            foreignKey: 'emisorID',
-            as: 'solicitudesEnviadas'
-        });
-        Usuario.hasMany(models.SolicitudAmistad, {
-            foreignKey: 'receptorID',
-            as: 'solicitudesRecibidas'
+            as: 'chats'
         });
     };
 

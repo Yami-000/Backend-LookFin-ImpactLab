@@ -4,6 +4,7 @@ import { expressMiddleware } from '@as-integrations/express5';
 import typeDefs from './graphql/schemas.js';
 import resolvers from './graphql/resolvers.js';
 import models from './models/index.js';
+import { extractBearerToken, verifyIdToken } from './config/firebaseAuth.js';
 
 const app = express();
 
@@ -45,7 +46,21 @@ app.use(
   '/graphql',
   express.json(),
   expressMiddleware(apolloServer, {
-    context: async () => ({ models })
+    context: async ({ req }) => {
+      const authorizationHeader = req.headers.authorization;
+      const idToken = extractBearerToken(authorizationHeader);
+
+      let authUser = null;
+      if (idToken) {
+        try {
+          authUser = await verifyIdToken(idToken);
+        } catch (error) {
+          console.warn('No se pudo verificar el token de Firebase enviado en Authorization:', error.message);
+        }
+      }
+
+      return { models, authUser, idToken };
+    }
   })
 );
 
