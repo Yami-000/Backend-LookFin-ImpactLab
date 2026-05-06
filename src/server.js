@@ -1,0 +1,52 @@
+import express from 'express';
+import { ApolloServer } from '@apollo/server';
+import { expressMiddleware } from '@as-integrations/express5';
+import typeDefs from './graphql/schemas.js';
+import resolvers from './graphql/resolvers.js';
+import models from './models/index.js';
+
+const app = express();
+
+const allowedOrigins = new Set(
+  String(process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN ?? '*')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (!origin || allowedOrigins.has('*') || allowedOrigins.has(origin)) {
+    res.header('Access-Control-Allow-Origin', allowedOrigins.has('*') ? '*' : origin ?? '*');
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, Apollo-Require-Preflight, apollo-require-preflight',
+    );
+  }
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  return next();
+});
+
+const apolloServer = new ApolloServer({
+  typeDefs,
+  resolvers
+});
+
+await apolloServer.start();
+
+app.use(
+  '/graphql',
+  express.json(),
+  expressMiddleware(apolloServer, {
+    context: async () => ({ models })
+  })
+);
+
+export default app;

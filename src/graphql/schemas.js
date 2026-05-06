@@ -1,0 +1,127 @@
+import { gql } from 'graphql-tag';
+
+const typeDefs = gql`
+
+type Usuario {
+  id: ID!
+  nombre: String!
+  correoElectronico: String!
+  contrasena: String!
+  sueldo: Float
+  porcentajeRSH: Float
+  profesion: String
+  fechaNacimiento: Int
+  ciudad: String
+  region: String
+  createdAt: String!
+  updatedAt: String!
+}
+
+input UsuarioInput {
+  nombre: String!
+  correoElectronico: String!
+  contrasena: String!
+  sueldo: Float
+  porcentajeRSH: Float
+  profesion: String
+  fechaNacimiento: Int
+  ciudad: String
+  region: String
+}
+
+type Chat {
+  id: ID!
+  nombre: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input ChatInput {
+  nombre: String!
+}
+
+type Mensaje {
+  id: ID!
+  chatID: ID!
+  userID: ID!
+  texto: String
+  archivoAdjuntoURL: String
+  createdAt: String!
+  updatedAt: String!
+}
+
+input MensajeInput {
+  chatID: ID!
+  userID: ID!
+  texto: String
+  archivoAdjuntoURL: String
+}
+
+type Message {
+  message: String!
+}
+
+type UsuarioLoginResponse {
+  success: Boolean!
+  message: String!
+  usuario: Usuario
+}
+
+type UsuarioAuthResponse {
+  success: Boolean!
+  message: String!
+  usuario: Usuario
+  firebaseUID: String
+  idToken: String
+}
+
+input LoginUsuarioInput {
+  nombreUsuario: String!
+  codigoUsuario: Int!
+  contrasena: String!
+}
+
+input LoginEmailPasswordInput {
+  correoElectronico: String!
+  idToken: String!
+}
+
+input LogoutInput {
+  idToken: String!
+}
+
+type Query {
+  getUsuarios: [Usuario]
+  getUsuarioByID(id: ID!): Usuario
+  
+  getChats: [Chat]
+  getChatByID(id: ID!): Chat
+  getChatsByUsuarioID(usuarioID: ID!): [Chat]
+
+  getMensajes(usuarioID: ID!): [Mensaje]
+  getMensajeByID(id: ID!, usuarioID: ID!): Mensaje
+  getMensajesByChatID(chatID: ID!): [Mensaje]
+}
+
+type Mutation {
+  addUsuario(input: UsuarioInput!): Usuario
+  updUsuario(id: ID!, input: UpdateUsuarioInput!): Usuario
+  delUsuario(id: ID!): Message
+
+  addChat(input: ChatInput!): Chat
+  updChat(id: ID!, input: ChatInput!): Chat
+  delChat(id: ID!): Message
+
+  addMensaje(input: MensajeInput!): Mensaje
+  updMensaje(id: ID!, input: MensajeInput!): Mensaje
+  delMensaje(id: ID!, usuarioID: ID!): Message
+
+  signUpEmailPassword(input: SignUpEmailPasswordInput!): UsuarioAuthResponse
+  loginEmailPassword(input: LoginEmailPasswordInput!): UsuarioAuthResponse
+  logout(input: LogoutInput!): UsuarioAuthResponse
+
+  loginUsuario(input: LoginUsuarioInput!): UsuarioLoginResponse
+}
+`;
+
+export default typeDefs;
