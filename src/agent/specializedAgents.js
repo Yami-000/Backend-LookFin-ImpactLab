@@ -4,16 +4,30 @@ import { AGENT_CATALOG, buildAgentSystemPrompt, normalizeText } from './knowledg
 const createSpecializedAgent = (agentKey) => {
   const agentConfig = AGENT_CATALOG[agentKey];
 
+  const formatSessionHistory = (sessionHistory = []) => {
+    if (!Array.isArray(sessionHistory) || sessionHistory.length === 0) {
+      return '';
+    }
+
+    return sessionHistory
+      .slice(-10)
+      .map((message, index) => `${index + 1}. ${message.role === 'user' ? 'Usuario' : 'Asistente'}: ${message.content}`)
+      .join('\n');
+  };
+
   return {
     name: agentConfig.name,
     agentKey,
-    async respond(query, host, model) {
-      const { systemPrompt, sources, allowedLinks, recommendedLinks } = await buildAgentSystemPrompt(agentKey, query);
+    async respond(query, host, model, sessionHistory = []) {
+      const { systemPrompt, sources, allowedLinks, recommendedLinks } = await buildAgentSystemPrompt(agentKey, query, sessionHistory);
+
+      const memoryBlock = formatSessionHistory(sessionHistory);
+      const historyContext = memoryBlock ? `\n\n## MEMORIA DE SESIÓN\n${memoryBlock}` : '';
 
       const response = await chatWithOllama({
         host,
         model,
-        systemPrompt,
+        systemPrompt: `${systemPrompt}${historyContext}`,
         messages: [{ role: 'user', content: query }],
       });
 

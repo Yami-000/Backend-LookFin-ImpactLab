@@ -4,6 +4,17 @@ const URL_PATTERN = /https?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#]*)?/gi;
 
 const normalizeUrlList = (urls = []) => Array.from(new Set(urls.filter(Boolean).map((url) => url.trim())));
 
+const formatSessionHistory = (sessionHistory = []) => {
+  if (!Array.isArray(sessionHistory) || sessionHistory.length === 0) {
+    return '';
+  }
+
+  return sessionHistory
+    .slice(-10)
+    .map((message, index) => `${index + 1}. ${message.role === 'user' ? 'Usuario' : 'Asistente'}: ${message.content}`)
+    .join('\n');
+};
+
 const sanitizeResponseLinks = (response, allowedLinks = [], recommendedLinks = [], userQuery = '') => {
   const allowed = new Set(normalizeUrlList([...allowedLinks, ...recommendedLinks]));
   let sanitized = response;
@@ -35,16 +46,21 @@ Reglas:
 - Nunca inventes enlaces. Solo puedes incluir URLs que estén explícitamente presentes en la información que recibes.
 - Si no hay enlaces autorizados en el contexto, no incluyas ningún link.
 - Si el usuario pide un link y no existe en el contexto, di que no está disponible en la documentación.
+- Usa la memoria de sesión para responder seguimientos, continuaciones y referencias anafóricas como "pasemos a la siguiente etapa" o "eso".
 - Mantén el lenguaje en español, tono empático y práctico.
 - Devuelve sólo la respuesta textual pensada para el usuario.
 `;
 
 export const createResponseAgent = (host, model) => ({
-  async respond(userQuery, specializedAgentResult = null, allowedLinks = [], recommendedLinks = []) {
+  async respond(userQuery, specializedAgentResult = null, allowedLinks = [], recommendedLinks = [], sessionHistory = []) {
     const messages = [];
+    const memoryBlock = formatSessionHistory(sessionHistory);
+    const systemPrompt = memoryBlock
+      ? `${RESPONSE_AGENT_SYSTEM_PROMPT}\n\nMEMORIA DE SESIÓN ACTUAL\n${memoryBlock}`
+      : RESPONSE_AGENT_SYSTEM_PROMPT;
 
     // System prompt to instruct the response agent
-    messages.push({ role: 'system', content: RESPONSE_AGENT_SYSTEM_PROMPT });
+    messages.push({ role: 'system', content: systemPrompt });
 
     // If we have a specialized agent result, provide it as context
     if (specializedAgentResult) {
@@ -54,6 +70,7 @@ export const createResponseAgent = (host, model) => ({
           specializedResult: specializedAgentResult,
           allowedLinks,
           recommendedLinks,
+          sessionHistory,
         }),
       });
       messages.push({ role: 'user', content: `Por favor, genera la respuesta final para la consulta: ${userQuery}. Si corresponde incluir un enlace, usa solo los de allowedLinks.` });
@@ -61,7 +78,7 @@ export const createResponseAgent = (host, model) => ({
       // Otherwise, respond directly to the user's query
       messages.push({
         role: 'assistant',
-        content: JSON.stringify({ allowedLinks, recommendedLinks }),
+        content: JSON.stringify({ allowedLinks, recommendedLinks, sessionHistory }),
       });
       messages.push({ role: 'user', content: userQuery });
     }

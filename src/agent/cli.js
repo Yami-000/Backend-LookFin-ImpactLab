@@ -38,6 +38,7 @@ const main = async () => {
 
   const rl = readline.createInterface({ input, output });
   const orchestrator = createAgentOrchestrator(host, model);
+  const sessionHistory = [];
 
   try {
     while (true) {
@@ -57,7 +58,7 @@ const main = async () => {
       }
 
       try {
-        const result = await orchestrator.processQuery(userMessage);
+        const result = await orchestrator.processQuery(userMessage, sessionHistory);
 
         if (result.validation && !result.validation.valida) {
           console.log(`\nLookFin> ${result.response}\n`);
@@ -65,6 +66,9 @@ const main = async () => {
           const agentInfo = result.agentUsed ? ` [${result.agentUsed}]` : '';
           console.log(`\nLookFin${agentInfo}> ${result.response}\n`);
         }
+
+        sessionHistory.push({ role: 'user', content: userMessage });
+        sessionHistory.push({ role: 'assistant', content: result.response });
       } catch (error) {
         console.error(`\nError del agente: ${error.message}\n`);
       }

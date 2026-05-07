@@ -119,6 +119,17 @@ const createMensajeIAToFirestore = async (chatID, texto, archivoAdjuntoURL = nul
     return await addMensajeToFirestore(mensajeData);
 };
 
+const buildSessionHistoryFromMessages = (mensajes = [], limit = 8) => {
+    const recentMessages = mensajes
+        .filter((mensaje) => typeof mensaje?.texto === 'string' && mensaje.texto.trim().length > 0)
+        .slice(-limit);
+
+    return recentMessages.map((mensaje) => ({
+        role: mensaje.usuarioID ? 'user' : 'assistant',
+        content: mensaje.texto,
+    }));
+};
+
 const resolvers = {
     Query: {
         // ------------------------------ Usuario ------------------------------
@@ -496,6 +507,9 @@ const resolvers = {
                     throw new Error('No autorizado: no tienes acceso a este chat');
                 }
 
+                const mensajesPrevios = await getMensajesByChatFromFirestore(input.chatID);
+                const sessionHistory = buildSessionHistoryFromMessages(mensajesPrevios, 8);
+
                 // 2. Guardar el mensaje del usuario
                 const mensajeUsuarioData = {
                     chatID: input.chatID,
@@ -512,7 +526,7 @@ const resolvers = {
                 const model = process.env.OLLAMA_MODEL ?? 'llama3.1';
                 const orchestrator = createAgentOrchestrator(host, model);
                 
-                const resultadoIA = await orchestrator.processQuery(input.texto);
+                const resultadoIA = await orchestrator.processQuery(input.texto, sessionHistory);
                 
                 // 4. Guardar la respuesta de la IA sin usuarioID
                 const mensajeIAData = {

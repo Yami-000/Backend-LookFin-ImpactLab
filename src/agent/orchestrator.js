@@ -10,7 +10,7 @@ export const createAgentOrchestrator = (host, model) => {
     host,
     model,
 
-    async processQuery(userQuery) {
+    async processQuery(userQuery, sessionHistory = []) {
       const result = {
         query: userQuery,
         steps: [],
@@ -42,7 +42,7 @@ export const createAgentOrchestrator = (host, model) => {
         result.agentUsed = specializedAgent.name;
         result.steps.push(specializedAgent.name);
 
-        const agentResponse = await specializedAgent.respond(userQuery, this.host, this.model);
+        const agentResponse = await specializedAgent.respond(userQuery, this.host, this.model, sessionHistory);
 
         // agentResponse.response contiene la salida del agente especializado
         const finalAnswer = await responseAgent.respond(
@@ -50,6 +50,7 @@ export const createAgentOrchestrator = (host, model) => {
           agentResponse.response,
           agentResponse.allowedLinks ?? [],
           agentResponse.recommendedLinks ?? [],
+          sessionHistory,
         );
         result.response = finalAnswer;
       } else {
@@ -57,7 +58,7 @@ export const createAgentOrchestrator = (host, model) => {
         result.agentUsed = 'agente_de_respuesta';
         result.steps.push('agente_de_respuesta');
 
-        const finalAnswer = await responseAgent.respond(userQuery, null, [], []);
+        const finalAnswer = await responseAgent.respond(userQuery, null, [], [], sessionHistory);
         result.response = finalAnswer;
       }
 
