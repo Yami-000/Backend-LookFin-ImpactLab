@@ -56,8 +56,9 @@ input ChatInput {
 type Mensaje {
   id: ID!
   chatID: ID!
-  userID: ID!
+  usuarioID: ID
   texto: String
+  usuario: Usuario
   archivoAdjuntoURL: String
   createdAt: String!
   updatedAt: String!
@@ -65,9 +66,14 @@ type Mensaje {
 
 input MensajeInput {
   chatID: ID!
-  userID: ID
+  usuarioID: ID
   texto: String
   archivoAdjuntoURL: String
+}
+
+input ProcessMensajeConIAInput {
+  chatID: ID!
+  texto: String!
 }
 
 type Message {
@@ -78,6 +84,11 @@ type FileUploadResponse {
   success: Boolean!
   message: String!
   fileUrl: String
+}
+
+type MensajeProcesadoConIAResponse {
+  mensajeUsuario: Mensaje!
+  mensajeIA: Mensaje!
 }
 
 type UsuarioLoginResponse {
@@ -146,6 +157,7 @@ type Mutation {
   addMensaje(input: MensajeInput!): Mensaje
   updMensaje(id: ID!, input: MensajeInput!): Mensaje
   delMensaje(id: ID!, usuarioID: ID!): Message
+  procesarMensajeConIA(input: ProcessMensajeConIAInput!): MensajeProcesadoConIAResponse
 
   signUpEmailPassword(input: SignUpEmailPasswordInput!): UsuarioAuthResponse
   loginEmailPassword(input: LoginEmailPasswordInput!): UsuarioAuthResponse

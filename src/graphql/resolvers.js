@@ -18,6 +18,7 @@ import {
 import admin from '../config/firebaseAdmin.js';
 import { Op } from 'sequelize';
 import { uploadFileToSupabaseServer } from '../config/supabase.js';
+import { createAgentOrchestrator } from '../agent/orchestrator.js';
 
 const { Chat, Mensaje, Usuario } = models;
 const { chatValidationSchema, mensajeValidationSchema, usuarioValidationSchema, updateUsuarioValidationSchema } = validationSchemas;
@@ -100,11 +101,22 @@ const ensureUsuarioFromFirebaseUser = async (firebaseUser, fallbackEmail) => {
 
 const enrichMensajeWithUser = async (mensaje) => {
     if (!mensaje) return null;
-    const usuario = await Usuario.findByPk(mensaje.usuarioID);
+    const usuario = mensaje.usuarioID ? await Usuario.findByPk(mensaje.usuarioID) : null;
     return {
         ...mensaje,
         usuario
     };
+};
+
+const createMensajeIAToFirestore = async (chatID, texto, archivoAdjuntoURL = null) => {
+    const mensajeData = {
+        chatID,
+        usuarioID: null, // Mensaje de IA sin usuario
+        texto,
+        archivoAdjuntoURL,
+    };
+    
+    return await addMensajeToFirestore(mensajeData);
 };
 
 const resolvers = {
@@ -461,6 +473,66 @@ const resolvers = {
             } catch (error) {
                 console.error('Mutation delMensaje - Error al eliminar el mensaje:', error);
                 throw new Error('Mutation delMensaje - Error al eliminar el mensaje: ' + error.message);
+            }
+        },
+
+        procesarMensajeConIA: async (_, { input }, { authUser }) => {
+            if (!authUser) {
+                throw new Error('No autenticado. Debes iniciar sesión para enviar mensajes.');
+            }
+
+            const usuario = await Usuario.findOne({
+                where: { firebaseUID: authUser.uid }
+            });
+
+            if (!usuario) {
+                throw new Error('Usuario no encontrado en la base de datos');
+            }
+
+            try {
+                // 1. Verificar que el chat existe y el usuario tiene acceso
+                const chat = await Chat.findByPk(input.chatID);
+                if (!chat || chat.usuarioID !== usuario.id) {
+                    throw new Error('No autorizado: no tienes acceso a este chat');
+                }
+
+                // 2. Guardar el mensaje del usuario
+                const mensajeUsuarioData = {
+                    chatID: input.chatID,
+                    usuarioID: usuario.id,
+                    texto: input.texto.trim(),
+                    archivoAdjuntoURL: null,
+                };
+
+                const mensajeUsuario = await addMensajeToFirestore(mensajeUsuarioData);
+                const mensajeUsuarioEnriquecido = await enrichMensajeWithUser(mensajeUsuario);
+
+                // 3. Pasar al orchestrador de IA para procesar
+                const host = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
+                const model = process.env.OLLAMA_MODEL ?? 'llama3.1';
+                const orchestrator = createAgentOrchestrator(host, model);
+                
+                const resultadoIA = await orchestrator.processQuery(input.texto);
+                
+                // 4. Guardar la respuesta de la IA sin usuarioID
+                const mensajeIAData = {
+                    chatID: input.chatID,
+                    usuarioID: null, // Mensaje de IA sin usuario
+                    texto: resultadoIA.response,
+                    archivoAdjuntoURL: null,
+                };
+
+                const mensajeIA = await createMensajeIAToFirestore(input.chatID, resultadoIA.response, null);
+                const mensajeIAEnriquecido = await enrichMensajeWithUser(mensajeIA);
+
+                // 5. Retornar ambos mensajes
+                return {
+                    mensajeUsuario: mensajeUsuarioEnriquecido,
+                    mensajeIA: mensajeIAEnriquecido,
+                };
+            } catch (error) {
+                console.error('Mutation procesarMensajeConIA - Error:', error);
+                throw new Error('Mutation procesarMensajeConIA - Error al procesar mensaje con IA: ' + error.message);
             }
         },
 

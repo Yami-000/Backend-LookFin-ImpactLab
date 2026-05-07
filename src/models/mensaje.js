@@ -18,7 +18,7 @@ export default (sequelize) => {
         },
         usuarioID: {
             type: DataTypes.UUID,
-            allowNull: false,
+            allowNull: true, // Nullable para mensajes generados por IA
             references: {
                 model: 'Usuario',
                 key: 'id',
