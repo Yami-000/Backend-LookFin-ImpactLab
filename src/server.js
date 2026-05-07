@@ -77,6 +77,19 @@ app.use(
         }
       }
 
+      // En producción, exigir token válido para todas las operaciones GraphQL
+      // excepto las operaciones de autenticación/registro.
+      const publicOperations = new Set(["signUpEmailPassword", "loginEmailPassword", "loginUsuario"]);
+      const operationName = req.body && typeof req.body === 'object' ? req.body.operationName : null;
+
+      if (isProduction) {
+        const isPublicOp = operationName && publicOperations.has(operationName);
+        if (!isPublicOp && !authUser) {
+          // Lanzar error para que GraphQL responda con un error de autenticación
+          throw new Error('No autenticado. Se requiere un token de Firebase válido.');
+        }
+      }
+
       return { models, authUser, idToken };
     }
   })
