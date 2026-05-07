@@ -1,5 +1,6 @@
 import express from 'express';
 import { ApolloServer } from '@apollo/server';
+import { ApolloServerPluginLandingPageDisabled } from '@apollo/server/plugin/disabled';
 import { expressMiddleware } from '@as-integrations/express5';
 import typeDefs from './graphql/schemas.js';
 import resolvers from './graphql/resolvers.js';
@@ -14,6 +15,18 @@ const allowedOrigins = new Set(
     .map((origin) => origin.trim())
     .filter(Boolean),
 );
+
+const isProduction = String(process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+
+app.use('/graphql', (req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (isProduction && origin && !allowedOrigins.has('*') && !allowedOrigins.has(origin)) {
+    return res.status(403).json({ error: 'Origen no permitido' });
+  }
+
+  return next();
+});
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -37,7 +50,8 @@ app.use((req, res, next) => {
 
 const apolloServer = new ApolloServer({
   typeDefs,
-  resolvers
+  resolvers,
+  plugins: isProduction ? [ApolloServerPluginLandingPageDisabled()] : []
 });
 
 await apolloServer.start();
