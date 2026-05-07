@@ -1,87 +1,70 @@
-/**
- * Agentes especializados para enrutar consultas específicas
- */
+import { chatWithOllama } from './ollamaClient.js';
+import { AGENT_CATALOG, buildAgentSystemPrompt, normalizeText } from './knowledgeBase.js';
 
-const createSpecializedAgent = (name, systemPrompt) => ({
-  name,
-  systemPrompt,
-  async respond(query, chatWithOllama, host, model) {
-    const response = await chatWithOllama({
-      host,
-      model,
-      systemPrompt: systemPrompt,
-      messages: [{ role: 'user', content: query }],
-    });
-    return {
-      tool: name,
-      status: 'completed',
-      response: response.trim(),
-    };
-  },
-});
+const createSpecializedAgent = (agentKey) => {
+  const agentConfig = AGENT_CATALOG[agentKey];
 
-// Agente para consultas de base de datos
-export const agenteBD = createSpecializedAgent(
-  'llamar_agente_bd',
-  `Eres un agente especializado en consultas de bases de datos.
-Tu rol es ayudar a recuperar información almacenada: historiales, registros, saldos, movimientos.
-Responde de forma clara y estructurada.
-Si la información no está disponible, explica qué datos se necesitarían.`,
-);
+  return {
+    name: agentConfig.name,
+    agentKey,
+    async respond(query, host, model) {
+      const { systemPrompt, sources, allowedLinks, recommendedLinks } = await buildAgentSystemPrompt(agentKey, query);
 
-// Agente clasificador de gastos e ingresos
-export const agenteClasificador = createSpecializedAgent(
-  'llamar_agente_clasificador_gastos_e_ingresos',
-  `Eres un experto en clasificación de gastos e ingresos.
-Tu rol es analizar cartolas, resumir flujos de dinero, detectar patrones de consumo.
-Distingue entre gastos fijos y variables, identifica oportunidades de ahorro.
-Responde con análisis práctico y recomendaciones claras.`,
-);
+      const response = await chatWithOllama({
+        host,
+        model,
+        systemPrompt,
+        messages: [{ role: 'user', content: query }],
+      });
 
-// Agente experto en beneficios sociales
-export const agenteBeneficios = createSpecializedAgent(
-  'llamar_agente_experto_beneficios_sociales',
-  `Eres un experto en beneficios sociales, Registro Social de Hogares y apoyos estatales.
-Tu rol es informar sobre beneficios disponibles, requisitos, cómo postular.
-Mantente actualizado sobre ayudas vigentes.
-Responde de forma empática y práctica.`,
-);
+      return {
+        tool: agentConfig.name,
+        status: 'completed',
+        response: response.trim(),
+        sources,
+        allowedLinks,
+        recommendedLinks,
+      };
+    },
+  };
+};
 
-// Agente experto en ahorro e inversión
-export const agenteAhorroInversion = createSpecializedAgent(
-  'llamar_agente_experto_en_ahorro_e_inversión',
-  `Eres un asesor financiero experto en ahorro e inversión.
-Tu rol es orientar sobre alternativas de ahorro, instrumentos de inversión, diversificación.
-Considera el perfil de riesgo y la situación financiera del usuario.
-Responde con recomendaciones claras, prácticas y responsables.`,
-);
+export const agenteMiPrimerAhorro = createSpecializedAgent('mi_primer_ahorro');
+export const agenteMiPrimeraInversion = createSpecializedAgent('mi_primera_inversion');
+export const agenteMiPrimeraVezPlanificando = createSpecializedAgent('mi_primera_vez_planificando');
+export const agenteMiPrimerEndeudamiento = createSpecializedAgent('mi_primer_endeudamiento');
+export const agenteMiPrimerSueldo = createSpecializedAgent('mi_primer_sueldo');
 
-// Mapeo de intenciones a agentes especializados
-export const determineSpecializedAgent = (query) => {
-  const queryLower = query.toLowerCase();
+export const determineSpecializedAgent = (query = '') => {
+  const queryNormalized = normalizeText(query);
 
-  if (queryLower.match(/\b(cartola|movimiento|saldo|historial|transacción|registro|datos)\b/i)) {
-    return agenteBD;
+  if (/\b(ahorr|ahorro|ahorros|cuenta de ahorro|fondo de emergencia|dep[oó]sito a plazo|dap)\b/i.test(queryNormalized)) {
+    return agenteMiPrimerAhorro;
   }
 
-  if (queryLower.match(/\b(gasto|ingreso|clasificar|presupuesto|flujo|dinero|consumo|ahorro potencial)\b/i)) {
-    return agenteClasificador;
+  if (/\b(inver|invertir|inversion|instrumento|instrumentos|acciones|fondos mutuos|fondos de inversion|renta fija|renta variable|portafolio|diversific|rentabilidad|riesgo)\b/i.test(queryNormalized)) {
+    return agenteMiPrimeraInversion;
   }
 
-  if (queryLower.match(/\b(beneficio|subsidio|ayuda|apoyo|bono|fondo|registro social)\b/i)) {
-    return agenteBeneficios;
+  if (/\b(planific|planificaci[oó]n|presupuesto|gastos hormiga|meta financiera|control de gastos|ingreso neto|saldo mensual)\b/i.test(queryNormalized)) {
+    return agenteMiPrimeraVezPlanificando;
   }
 
-  if (queryLower.match(/\b(ahorr|invert|rendimiento|interés|plan financiero|instrumento|riesgo|cartera)\b/i)) {
-    return agenteAhorroInversion;
+  if (/\b(deuda|endeud|tarjeta de credito|tarjeta de cr[eé]dito|pago minimo|estado de cuenta|mora|cupo|inter[eé]s rotativo|avance en efectivo)\b/i.test(queryNormalized)) {
+    return agenteMiPrimerEndeudamiento;
   }
 
-  return null; // Sin agente especializado, usar agente general
+  if (/\b(sueldo|salario|primer sueldo|tarjeta de debito|tarjeta de d[eé]bito|cuenta corriente|cuenta a la vista|pin|cajero|fraude|retiro|medio de pago)\b/i.test(queryNormalized)) {
+    return agenteMiPrimerSueldo;
+  }
+
+  return null;
 };
 
 export const allSpecializedAgents = [
-  agenteBD,
-  agenteClasificador,
-  agenteBeneficios,
-  agenteAhorroInversion,
+  agenteMiPrimerAhorro,
+  agenteMiPrimeraInversion,
+  agenteMiPrimeraVezPlanificando,
+  agenteMiPrimerEndeudamiento,
+  agenteMiPrimerSueldo,
 ];

@@ -41,12 +41,12 @@ Valida consultas antes de procesarlas.
 - Responde en JSON: `{valida: boolean, razon: string}`
 
 ### `specializedAgents.js`
-Define los cinco agentes especializados:
-1. **agenteBD**: Consultas de base de datos (saldos, historiales)
-2. **agenteClasificador**: Análisis de gastos e ingresos
-3. **agenteBeneficios**: Información sobre beneficios sociales
-4. **agenteAhorroInversion**: Recomendaciones de ahorro e inversión
-5. **Función de enrutamiento**: Detecta la intención y asigna agente
+Define los cinco agentes especializados respaldados por documentos:
+1. **agenteMiPrimerAhorro**: Educación financiera sobre ahorro personal
+2. **agenteMiPrimeraInversion**: Educación financiera sobre inversión
+3. **agenteMiPrimeraVezPlanificando**: Presupuesto y planificación inicial
+4. **agenteMiPrimerEndeudamiento**: Tarjeta de crédito y endeudamiento responsable
+5. **agenteMiPrimerSueldo**: Primer sueldo, débito y organización inicial
 
 ### `responseAgent.js`
 Agente encargado de generar la respuesta final para el usuario.
@@ -137,27 +137,10 @@ Beneficios del usuario 123
 
 Para añadir un nuevo agente especializado:
 
-```javascript
-export const miAgente = createSpecializedAgent(
-  'nombre_agente',
-  'System prompt específico para este agente...'
-);
-```
-
-Luego añadirlo a `specializedAgents.js`:
-```javascript
-export const allSpecializedAgents = [
-  // ... existentes
-  miAgente,
-];
-```
-
-Y añadir patrón de detección en `determineSpecializedAgent()`:
-```javascript
-if (queryLower.match(/\b(palabra_clave)\b/i)) {
-  return miAgente;
-}
-```
+1. Agrega un nuevo bloque en `AGENT_CATALOG` dentro de `knowledgeBase.js`.
+2. Crea o reutiliza una carpeta en `src/agent/documents/` con sus documentos base.
+3. Añade el prompt en `markdown/` con el patrón `system_prompt_<Nombre>.md`.
+4. Registra el agente y su detector en `specializedAgents.js`.
 
 ## Debugging
 
@@ -168,7 +151,7 @@ Cada respuesta incluye:
   steps: [
     "security_validation",          // Validación de seguridad
     "agent_routing",                // Determinación de ruta
-    "llamar_agente_bd",             // (opcional) Agente especializado usado
+    "agenteMiPrimeraInversion",     // (opcional) Agente especializado usado
     "agente_de_respuesta"           // Agente de respuesta final
   ],
   validation: { valida: boolean, razon: string },

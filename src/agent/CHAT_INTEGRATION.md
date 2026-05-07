@@ -139,8 +139,8 @@ Respuesta Final guardada en BD (sin usuarioID)
 2. **Frontend envía mutación** `procesarMensajeConIA`
 3. **Backend guarda** mensaje del usuario con `usuarioID`
 4. **Orchestrator valida**: "✓ Consulta válida - sin IDs específicos"
-5. **Agent routing**: Detecta como consulta de BD → `agenteBD`
-6. **Agent BD responde**: "Tu saldo es $X.XXX"
+5. **Agent routing**: Detecta como consulta de inversión → `agenteMiPrimeraInversion`
+6. **Agente especializado responde** usando contexto documental
 7. **Backend guarda** respuesta de IA sin `usuarioID`
 8. **Frontend recibe** ambos mensajes y los muestra en el chat
 
