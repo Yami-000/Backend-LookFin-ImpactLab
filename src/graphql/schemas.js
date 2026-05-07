@@ -65,7 +65,7 @@ type Mensaje {
 
 input MensajeInput {
   chatID: ID!
-  userID: ID!
+  userID: ID
   texto: String
   archivoAdjuntoURL: String
 }

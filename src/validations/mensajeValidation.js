@@ -6,18 +6,16 @@ const mensajeValidationSchema = joi.object({
         'string.uuid': 'El ID del chat debe ser un UUID válido.',
         'any.required': 'El ID del chat es obligatorio.'
     }),
-    usuarioID: joi.string().uuid().required().messages({
+    usuarioID: joi.string().uuid().messages({
         'string.base': 'El ID del usuario debe ser una cadena de texto.',
         'string.uuid': 'El ID del usuario debe ser un UUID válido.',
         'any.required': 'El ID del usuario es obligatorio.'
     }),
-    texto: joi.string().min(1).max(500).required().messages({
+    texto: joi.string().trim().allow('').max(500).messages({
         'string.base': 'El texto del mensaje debe ser una cadena de texto.',
-        'string.min': 'El texto del mensaje debe tener al menos 1 carácter.',
         'string.max': 'El texto del mensaje no debe exceder los 500 caracteres.',
-        'any.required': 'El texto del mensaje es obligatorio.'
     }),
-    archivoAdjuntoURL: joi.string().uri().max(255).messages({
+    archivoAdjuntoURL: joi.string().uri().max(255).allow(null).messages({
         'string.base': 'La URL del archivo adjunto debe ser una cadena de texto.',
         'string.uri': 'La URL del archivo adjunto debe ser una URL válida.',
         'string.max': 'La URL del archivo adjunto no debe exceder los 255 caracteres.',
@@ -26,6 +24,19 @@ const mensajeValidationSchema = joi.object({
         'string.base': 'El remitente debe ser una cadena de texto.',
         'any.only': 'El remitente debe ser "usuario" o "ia".'
     })
+}).custom((value, helpers) => {
+    const hasText = typeof value.texto === 'string' && value.texto.trim().length > 0;
+    const hasAttachment = typeof value.archivoAdjuntoURL === 'string' && value.archivoAdjuntoURL.trim().length > 0;
+
+    if (!hasText && !hasAttachment) {
+        return helpers.error('any.invalid', {
+            message: 'Debes enviar texto o un archivo adjunto.'
+        });
+    }
+
+    return value;
+}, 'mensaje content validation').messages({
+    'any.invalid': '{{#message}}'
 })
 
 export default mensajeValidationSchema;

@@ -202,11 +202,23 @@ const resolvers = {
             }
         },
 
-        getMensajesByChatID: async (_, { chatID, usuarioID }) => {
+        getMensajesByChatID: async (_, { chatID }, { authUser }) => {
             try {
+                if (!authUser) {
+                    throw new Error('No autenticado. Debes iniciar sesión para consultar mensajes.');
+                }
+
+                const usuario = await Usuario.findOne({
+                    where: { firebaseUID: authUser.uid }
+                });
+
+                if (!usuario) {
+                    throw new Error('Usuario no encontrado en la base de datos');
+                }
+
                 // Verificar que el usuario sea propietario del chat
                 const chat = await Chat.findByPk(chatID);
-                if (!chat || chat.usuarioID !== usuarioID) {
+                if (!chat || chat.usuarioID !== usuario.id) {
                     throw new Error('No autorizado: no tienes acceso a este chat');
                 }
 
@@ -363,8 +375,26 @@ const resolvers = {
         },
 
         // ------------------------------ Mensaje ------------------------------
-        addMensaje: async (_, { input }) => {
-            const { value, error } = mensajeValidationSchema.validate(input, { abortEarly: false, stripUnknown: true });
+        addMensaje: async (_, { input }, { authUser }) => {
+            if (!authUser) {
+                throw new Error('No autenticado. Debes iniciar sesión para enviar mensajes.');
+            }
+
+            const usuario = await Usuario.findOne({
+                where: { firebaseUID: authUser.uid }
+            });
+
+            if (!usuario) {
+                throw new Error('Usuario no encontrado en la base de datos');
+            }
+
+            const normalizedInput = {
+                ...input,
+                usuarioID: usuario.id,
+                texto: typeof input?.texto === 'string' ? input.texto.trim() : '',
+            };
+
+            const { value, error } = mensajeValidationSchema.validate(normalizedInput, { abortEarly: false, stripUnknown: true });
             if (error) {
                 throw new Error(`Mutation addMensaje - Error de validación: ${error.details.map(err => err.message).join(', ')}`);
             }
